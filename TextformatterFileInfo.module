@@ -25,6 +25,7 @@ class TextformatterFileInfo extends Textformatter implements ConfigurableModule 
 			'author' => 'Robin Sallis',
 			'href' => 'https://github.com/Toutouwai/TextformatterFileInfo',
 			'icon' => 'info-circle',
+			'requires' => 'ProcessWire>=3.0.0',
 		); 
 	}
 
