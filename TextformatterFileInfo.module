@@ -1,0 +1,268 @@
+<?php namespace ProcessWire;
+
+/**
+ *
+ * File Info
+ *
+ * @author Robin Sallis
+ *
+ * ProcessWire 3.x
+ * Copyright (C) 2011 by Ryan Cramer
+ * Licensed under GNU/GPL v2, see LICENSE.TXT
+ *
+ * http://www.processwire.com
+ * http://www.ryancramer.com
+ *
+ */
+
+class TextformatterFileInfo extends Textformatter implements ConfigurableModule {
+
+	public static function getModuleInfo() {
+		return array(
+			'title' => 'File Info',
+			'summary' => 'Textformatter that adds information about linked files as extra markup, or as data attributes on the link.',
+			'version' => '0.1.0',
+			'author' => 'Robin Sallis',
+			'href' => 'https://github.com/Toutouwai/TextformatterFileInfo',
+			'icon' => 'info-circle',
+		); 
+	}
+
+	/**
+	 * Construct
+	 */
+	public function __construct() {
+		parent::__construct();
+		$this->pagefile_attributes = array('ext', 'filesizeStrCustom');
+		$this->filesize_decimals = 2;
+		$this->date_format = 'd M Y H:i:s';
+		$this->markup = ' <span class="file-info">({ext}, {filesizeStrCustom})</span>';
+		$this->markup_position = 'after';
+	}
+
+	/**
+	 * Format string
+	 *
+	 * @param Page $page
+	 * @param Field $field
+	 * @param $value
+	 */
+	public function formatValue(Page $page, Field $field, &$value) {
+
+		if(!$this->add_data_attributes && !$this->add_markup) return;
+
+		$base_url = $this->wire('config')->urls->files;
+		$http_prefix = rtrim($this->wire('config')->urls->httpRoot, '/');
+
+		// Return early when possible
+		if(strpos($value, $base_url) === false) return;
+
+		// Parse HTML
+		require_once __DIR__ . '/simple_html_dom.php';
+		$html = str_get_html($value);
+
+		// Loop over links
+		foreach($html->find('a') as $link) {
+			$href = $link->href;
+			// Continue if this is not a link to /site/files/
+			if(strpos($href, $base_url) === 0) {
+				$href = $http_prefix . $href;
+			} elseif(strpos($href, $http_prefix . $base_url) !== 0) {
+				continue;
+			}
+			// Get Pagefile
+			$pagefile = $page->filesManager->getFile($href);
+			// Continue if Pagefile not returned
+			if(!$pagefile) continue;
+			// Get Pagefile attributes
+			$attributes = $this->getFileAttributes($pagefile, $page, $field);
+			if(empty($attributes)) return;
+			// Add class string
+			if($this->class_string) {
+				$existing_class = $link->class;
+				if($existing_class) $existing_class .= ' ';
+				$link->class = $existing_class . $this->class_string;
+			}
+			if($this->add_markup) {
+				// Add markup to link
+				$markup = wirePopulateStringTags($this->markup, $attributes);
+				switch($this->markup_position) {
+					case 'prepend':
+						$link->innertext = $markup . $link->innertext;
+						break;
+					case 'append':
+						$link->innertext .= $markup;
+						break;
+					case 'before':
+						$link->outertext = $markup . $link->outertext;
+						break;
+					case 'after':
+						$link->outertext .= $markup;
+						break;
+				}
+			}
+			if($this->add_data_attributes) {
+				// Set data attributes on link
+				foreach($attributes as $key => $value) {
+					$link->setAttribute( "data-$key", $value);
+				}
+			}
+		}
+
+		// Set modified HTML
+		$value = (string) $html;
+	}
+
+	/**
+	 * Get Pagefile attributes
+	 *
+	 * @param Pagefile $pagefile
+	 * @param Page $page
+	 * @param Field $field
+	 * @return array
+	 */
+	public function ___getFileAttributes(Pagefile $pagefile, Page $page, Field $field) {
+		$attributes = array();
+		foreach($this->pagefile_attributes as $attribute) {
+			switch($attribute) {
+				case 'ext':
+					$attributes[$attribute] = strtoupper($pagefile->$attribute);
+					break;
+				case 'filesizeStrCustom':
+					$attributes[$attribute] = wireBytesStr($pagefile->filesize, array('decimals' => $this->filesize_decimals ?: 0));
+					break;
+				case 'modified':
+				case 'created':
+					$attributes[$attribute] = date($this->date_format, $pagefile->$attribute);
+					break;
+				default:
+					$attributes[$attribute] = $pagefile->$attribute;
+			}
+		}
+		return $attributes;
+	}
+
+	/**
+	 * Config inputfields
+	 *
+	 * @param InputfieldWrapper $inputfields
+	 */
+	public function getModuleConfigInputfields($inputfields) {
+
+		$modules = $this->wire('modules');
+
+		/* @var InputfieldFieldset $f */
+		$fs1 = $modules->InputfieldFieldset;
+		$fs1->label = $this->_('Textformatter actions');
+		$inputfields->add($fs1);
+
+		/* @var InputfieldCheckbox $f */
+		$f = $modules->InputfieldCheckbox;
+		$f_name = 'add_markup';
+		$f->name = $f_name;
+		$f->label = $this->_('Add markup to links');
+		$f->checked = $this->$f_name === 1 ? 'checked' : '';
+		$f->columnWidth = 50;
+		$fs1->add($f);
+
+		/* @var InputfieldCheckbox $f */
+		$f = $modules->InputfieldCheckbox;
+		$f_name = 'add_data_attributes';
+		$f->name = $f_name;
+		$f->label = $this->_('Add data attributes to links');
+		$f->checked = $this->$f_name === 1 ? 'checked' : '';
+		$f->columnWidth = 50;
+		$fs1->add($f);
+
+		/* @var InputfieldFieldset $f */
+		$fs2 = $modules->InputfieldFieldset;
+		$fs2->label = $this->_('Configuration');
+		$fs2->showIf = 'add_data_attributes|add_markup=1';
+		$inputfields->add($fs2);
+
+		/* @var InputfieldCheckboxes $f */
+		$f = $modules->InputfieldCheckboxes;
+		$f_name = 'pagefile_attributes';
+		$f->name = $f_name;
+		$f->label = $this->_('Pagefile attributes');
+		$f->description = $this->_('Select the Pagefile attributes to use in the added markup or data attributes. The attribute "filesizeStrCustom" allows for setting a custom number of decimal places.') . "\n";
+		$f->description .= $this->_('Note: attributes with camelcase names will be converted to data attribute names that are all lowercase, i.e. filesizeStrCustom becomes data-filesizestrcustom.');
+		$f->addOptions(array(
+			'basename',
+			'ext',
+			'filename',
+			'filesize',
+			'filesizeStr',
+			'filesizeStrCustom',
+			'hash',
+			'description',
+			'tags',
+			'modified',
+			'created',
+		), false);
+		$f->optionColumns = 4;
+		$f->value = $this->$f_name;
+		$fs2->add($f);
+
+		/* @var InputfieldText $f */
+		$f = $modules->InputfieldText;
+		$f_name = 'class_string';
+		$f->name = $f_name;
+		$f->label = $this->_('Class string to add to links');
+		$f->value = $this->$f_name;
+		$f->collapsed = Inputfield::collapsedBlank;
+		$fs2->add($f);
+
+		/* @var InputfieldInteger $f */
+		$f = $modules->InputfieldInteger;
+		$f_name = 'filesize_decimals';
+		$f->name = $f_name;
+		$f->label = $this->_('Number of decimals to use in filesizeStrCustom');
+		$f->inputType = 'number';
+		$f->min = 0;
+		$f->value = $this->$f_name;
+		$f->showIf = 'pagefile_attributes=filesizeStrCustom';
+		$fs2->add($f);
+
+		/* @var InputfieldText $f */
+		$f = $modules->InputfieldText;
+		$f_name = 'date_format';
+		$f->name = $f_name;
+		$f->label = $this->_('Date format for modified/created');
+		$f->description = $this->_('See [documentation](https://www.php.net/manual/en/function.date.php) of format for PHP date() function.');
+		$f->value = $this->$f_name;
+		$f->showIf = 'pagefile_attributes=modified|created';
+		$fs2->add($f);
+
+		/* @var InputfieldTextarea $f */
+		$f = $modules->InputfieldTextarea;
+		$f_name = 'markup';
+		$f->name = $f_name;
+		$f->label = $this->_('Markup to add to links');
+		$f->description = $this->_('Surround Pagefile attribute names in {brackets}.') . "\n";
+		$f->description .= $this->_('Example: ` <span class="file-info">({ext}, {filesizeStrCustom})</span>`');
+		$f->noTrim = true;
+		$f->rows = 2;
+		$f->value = $this->$f_name;
+		$f->showIf = 'add_markup=1';
+		$fs2->add($f);
+
+		/* @var InputfieldRadios $f */
+		$f = $modules->InputfieldRadios;
+		$f_name = 'markup_position';
+		$f->name = $f_name;
+		$f->label = $this->_('Markup position relative to link');
+		$f->addOptions(array(
+			'prepend' => $this->_('Prepend'),
+			'append' => $this->_('Append'),
+			'before' => $this->_('Before'),
+			'after' => $this->_('After'),
+		));
+		$f->value = $this->$f_name;
+		$f->optionColumns = 1;
+		$f->showIf = 'add_markup=1';
+		$fs2->add($f);
+
+	}
+
+}
