@@ -31,6 +31,7 @@ Add the textformatter to one or more CKEditor fields.
 * Enter a class string to add to the links if needed.
 * Define the markup that will be added to the links. Surround Pagefile attribute names in {brackets}. Attributes must be selected in the "Pagefile attributes" section in order to be available in the added markup. If you want include a space character at the start or end of the markup then you'll need >= PW 3.0.128.
 * Select where the markup should be added: prepended or appended within the link, before the link, or after the link.
+* There is an option to not add markup to links that contain images (because the markup might look out of place there).
 
 ### Add data attributes action
 

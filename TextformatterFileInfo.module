@@ -21,7 +21,7 @@ class TextformatterFileInfo extends Textformatter implements ConfigurableModule 
 		return array(
 			'title' => 'File Info',
 			'summary' => 'Textformatter that adds information about linked files as extra markup, or as data attributes on the link.',
-			'version' => '0.1.0',
+			'version' => '0.1.1',
 			'author' => 'Robin Sallis',
 			'href' => 'https://github.com/Toutouwai/TextformatterFileInfo',
 			'icon' => 'info-circle',
@@ -65,6 +65,8 @@ class TextformatterFileInfo extends Textformatter implements ConfigurableModule 
 		// Loop over links
 		foreach($html->find('a') as $link) {
 			$href = $link->href;
+			// Skip links that contain images if that option enabled
+			if($this->skip_image_links && !empty($link->find('img'))) continue;
 			// Continue if this is not a link to /site/files/
 			if(strpos($href, $base_url) === 0) {
 				$href = $http_prefix . $href;
@@ -261,6 +263,15 @@ class TextformatterFileInfo extends Textformatter implements ConfigurableModule 
 		));
 		$f->value = $this->$f_name;
 		$f->optionColumns = 1;
+		$f->showIf = 'add_markup=1';
+		$fs2->add($f);
+
+		/* @var InputfieldCheckbox $f */
+		$f = $modules->InputfieldCheckbox;
+		$f_name = 'skip_image_links';
+		$f->name = $f_name;
+		$f->label = $this->_('Do not add markup to links that contain images');
+		$f->checked = $this->$f_name === 1 ? 'checked' : '';
 		$f->showIf = 'add_markup=1';
 		$fs2->add($f);
 
