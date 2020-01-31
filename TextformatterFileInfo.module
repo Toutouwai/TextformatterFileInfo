@@ -21,7 +21,7 @@ class TextformatterFileInfo extends Textformatter implements ConfigurableModule 
 		return array(
 			'title' => 'File Info',
 			'summary' => 'Textformatter that adds information about linked files as extra markup, or as data attributes on the link.',
-			'version' => '0.1.2',
+			'version' => '0.1.3',
 			'author' => 'Robin Sallis',
 			'href' => 'https://github.com/Toutouwai/TextformatterFileInfo',
 			'icon' => 'info-circle',
