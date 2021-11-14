@@ -38,7 +38,9 @@ Add the textformatter to one or more CKEditor fields.
 * Select "Add data attributes to links"
 * Select the Pagefile attributes that will be retrieved. These attributes will be added to the file links as data attributes. Attributes with camelcase names will be converted to data attribute names that are all lowercase, i.e. filesizeStrCustom becomes data-filesizestrcustom.
 
-### Hook
+### Advanced
+
+#### File attributes
 
 If you want to customise or add to the attributes that are retrieved from the Pagefile you can hook `TextformatterFileInfo::getFileAttributes()`. For example:
 
@@ -52,5 +54,37 @@ $wire->addHookAfter('TextformatterFileInfo::getFileAttributes', function(HookEve
 	// Add a new attribute
 	$attributes['sizeNote'] = $pagefile->filesize > 10000000 ? 'This file is pretty big' : 'This file is not so big';
 	$event->return = $attributes;
+});
+```
+
+#### Dynamic settings
+
+If needed you can adjust the module settings depending on link attributes by hooking after `TextformatterFileInfo::getSettings()`. This method receives each eligible link element as a `simple_html_dom_node` object ([documentation](https://simplehtmldom.sourceforge.io/docs/)) and returns an array of settings. By default the settings are those from the module config, and the return array looks like this:
+
+```php
+[
+    'add_markup' => $this->add_markup, // 1 or '' (true/false also works)
+    'add_data_attributes' => $this->add_data_attributes, // 1 or '' (true/false also works)
+    'class_string' => $this->class_string, // string
+    'filesize_decimals' => $this->filesize_decimals, // integer
+    'date_format' => $this->date_format, // string
+    'markup' => $this->markup, // string
+    'markup_position' => $this->markup_position, // 'prepend', 'append', 'before' or 'after'
+    'skip_image_links' => $this->skip_image_links, // 1 or '' (true/false also works)
+]
+```
+
+Example hook to prevent markup being added to links with the "button-link" class:
+
+```php
+$wire->addHookAfter('TextformatterFileInfo::getSettings', function(HookEvent $event) {
+    $link = $event->arguments(0);
+    $settings = $event->return;
+    $class_string = $link->getAttribute('class');
+    $classes = explode(' ', $class_string);
+    if(in_array('button-link', $classes)) {
+        $settings['add_markup'] = false;
+        $event->return = $settings;
+    }
 });
 ```

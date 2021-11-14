@@ -21,12 +21,12 @@ class TextformatterFileInfo extends Textformatter implements ConfigurableModule 
 		return array(
 			'title' => 'File Info',
 			'summary' => 'Textformatter that adds information about linked files as extra markup, or as data attributes on the link.',
-			'version' => '0.1.3',
+			'version' => '0.1.4',
 			'author' => 'Robin Sallis',
 			'href' => 'https://github.com/Toutouwai/TextformatterFileInfo',
 			'icon' => 'info-circle',
 			'requires' => 'ProcessWire>=3.0.0',
-		); 
+		);
 	}
 
 	/**
@@ -49,11 +49,12 @@ class TextformatterFileInfo extends Textformatter implements ConfigurableModule 
 	 * @param $value
 	 */
 	public function formatValue(Page $page, Field $field, &$value) {
+		$config = $this->wire()->config;
 
 		if(!$this->add_data_attributes && !$this->add_markup) return;
 
-		$base_url = $this->wire('config')->urls->files;
-		$http_prefix = rtrim($this->wire('config')->urls->httpRoot, '/');
+		$base_url = $config->urls->files;
+		$http_prefix = rtrim($config->urls->httpRoot, '/');
 
 		// Return early when possible
 		if(strpos($value, $base_url) === false) return;
@@ -66,9 +67,8 @@ class TextformatterFileInfo extends Textformatter implements ConfigurableModule 
 
 		// Loop over links
 		foreach($html->find('a') as $link) {
+
 			$href = $link->href;
-			// Skip links that contain images if that option enabled
-			if($this->skip_image_links && !empty($link->find('img'))) continue;
 			// Continue if this is not a link to /site/files/
 			if(strpos($href, $base_url) === 0) {
 				$href = $http_prefix . $href;
@@ -82,16 +82,23 @@ class TextformatterFileInfo extends Textformatter implements ConfigurableModule 
 			// Get Pagefile attributes
 			$attributes = $this->getFileAttributes($pagefile, $page, $field);
 			if(empty($attributes)) return;
+
+			// Get settings via hookable method
+			$settings = $this->getSettings($link);
+
+			// Skip links that contain images if that option enabled
+			if($settings['skip_image_links'] && !empty($link->find('img'))) continue;
+
 			// Add class string
-			if($this->class_string) {
+			if($settings['class_string']) {
 				$existing_class = $link->class;
 				if($existing_class) $existing_class .= ' ';
-				$link->class = $existing_class . $this->class_string;
+				$link->class = $existing_class . $settings['class_string'];
 			}
-			if($this->add_markup) {
+			if($settings['add_markup']) {
 				// Add markup to link
-				$markup = wirePopulateStringTags($this->markup, $attributes);
-				switch($this->markup_position) {
+				$markup = wirePopulateStringTags($settings['markup'], $attributes);
+				switch($settings['markup_position']) {
 					case 'prepend':
 						$link->innertext = $markup . $link->innertext;
 						break;
@@ -106,7 +113,7 @@ class TextformatterFileInfo extends Textformatter implements ConfigurableModule 
 						break;
 				}
 			}
-			if($this->add_data_attributes) {
+			if($settings['add_data_attributes']) {
 				// Set data attributes on link
 				foreach($attributes as $key => $value) {
 					$link->setAttribute( "data-$key", $value);
@@ -116,6 +123,25 @@ class TextformatterFileInfo extends Textformatter implements ConfigurableModule 
 
 		// Set modified HTML
 		$value = (string) $html;
+	}
+
+	/**
+	 * Get settings for this link
+	 *
+	 * @param \simple_html_dom_node $link
+	 * @return array
+	 */
+	public function ___getSettings($link) {
+		return [
+			'add_markup' => $this->add_markup,
+			'add_data_attributes' => $this->add_data_attributes,
+			'class_string' => $this->class_string,
+			'filesize_decimals' => $this->filesize_decimals,
+			'date_format' => $this->date_format,
+			'markup' => $this->markup,
+			'markup_position' => $this->markup_position,
+			'skip_image_links' => $this->skip_image_links,
+		];
 	}
 
 	/**
@@ -154,7 +180,7 @@ class TextformatterFileInfo extends Textformatter implements ConfigurableModule 
 	 */
 	public function getModuleConfigInputfields($inputfields) {
 
-		$modules = $this->wire('modules');
+		$modules = $this->wire()->modules;
 
 		/* @var InputfieldFieldset $f */
 		$fs1 = $modules->InputfieldFieldset;
