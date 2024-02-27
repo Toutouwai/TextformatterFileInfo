@@ -21,7 +21,7 @@ class TextformatterFileInfo extends Textformatter implements ConfigurableModule 
 		return array(
 			'title' => 'File Info',
 			'summary' => 'Textformatter that adds information about linked files as extra markup, or as data attributes on the link.',
-			'version' => '0.1.5',
+			'version' => '0.1.6',
 			'author' => 'Robin Sallis',
 			'href' => 'https://github.com/Toutouwai/TextformatterFileInfo',
 			'icon' => 'info-circle',
@@ -61,7 +61,7 @@ class TextformatterFileInfo extends Textformatter implements ConfigurableModule 
 
 		// Parse HTML
 		if(!function_exists('str_get_html')) {
-			require_once __DIR__ . '/simple_html_dom.php';
+			require_once __DIR__ . '/simple_html_dom_rps.php';
 		}
 		// Including the first five arguments because argument five (strip line breaks) should be false
 		$html = str_get_html($value, true, true, DEFAULT_TARGET_CHARSET, false);
